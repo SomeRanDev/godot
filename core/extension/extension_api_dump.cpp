@@ -98,8 +98,104 @@ static String fix_doc_description(const String &p_bbcode) {
 			.strip_edges();
 }
 
+GDExtensionAPIType::GDExtensionAPIType(JsonType p_type, bool p_optional):
+	type(p_type), optional(p_optional)
+{
+	switch(p_type) {
+		case JsonType::ARRAY: {
+			subtype.array_type = GDExtensionAPIType(JsonType::ANY, true);
+			break;
+		}
+		case JsonType::OBJECT: {
+			subtype.object_member_types = Vector<Pair<String, GDExtensionAPIType>>();
+			break;
+		}
+		default: break;
+	}
+}
+
+GDExtensionAPIType::~GDExtensionAPIType() {
+	switch(p_type) {
+		case JsonType::ARRAY: {
+			subtype.array_type.~GDExtensionAPIType();
+			break;
+		}
+		case JsonType::OBJECT: {
+			subtype.object_member_types.~Vector<Pair<String, GDExtensionAPIType>>();
+			break;
+		}
+		default: break;
+	}
+}
+
+GDExtensionAPIType& GDExtensionAPIType::set_array_subtype(const GDExtensionAPIType& p_type) {
+	switch(p_type) {
+		case JsonType::ARRAY: {
+			subtype.array_type = p_type;
+			break;
+		}
+		default: {
+			// TODO: throw error...
+		}
+	}
+}
+
+GDExtensionAPIType& GDExtensionAPIType::add_object_member(const String& p_name, const GDExtensionAPIType& p_type) {
+	switch(p_type) {
+		case JsonType::OBJECT: {
+			subtype.object_member_types.push(Pair(p_name, p_type));
+			break;
+		}
+		default: {
+			// TODO: throw error...
+		}
+	}
+}
+
+String GDExtensionAPIType::generate_definition() const {
+	String result;
+
+	switch(p_type) {
+		case JsonType::ANY: {
+			result = "any";
+			break;
+		}
+		case JsonType::BOOLEAN: {
+			result = "boolean";
+			break;
+		}
+		case JsonType::NUMBER: {
+			result = "number";
+			break;
+		}
+		case JsonType::STRING: {
+			result = "string";
+			break;
+		}
+		case JsonType::ARRAY: {
+			result = subtype.array_type.generate_definition() + "[]";
+			break;
+		}
+		case JsonType::OBJECT: {
+			result = "{";
+			for(const Pair<String, GDExtensionAPIType>& member : subtype.object_member_types) {
+				result += "\n\t" + String(member.first + ": " + member.second.generate_definition()) + ",";
+			}
+			result += "\n}";
+			break;
+		}
+		default: break;
+	}
+
+	if(optional) {
+		return "(undefined | " + result + ")";
+	}
+	return result;
+}
+
 Dictionary GDExtensionAPIDump::generate_extension_api(bool p_include_docs) {
 	Dictionary api_dump;
+	GDExtensionAPIType type_definition;
 
 	{
 		//header
@@ -116,6 +212,17 @@ Dictionary GDExtensionAPIDump::generate_extension_api(bool p_include_docs) {
 		header["version_full_name"] = VERSION_FULL_NAME;
 
 		api_dump["header"] = header;
+
+		//header type
+		GDExtensionAPIType header_type(JsonType::OBJECT, false);
+		header_type
+			.add_object_member("version_major", GDExtensionAPIType::number())
+			.add_object_member("version_minor", GDExtensionAPIType::number())
+			.add_object_member("version_patch", GDExtensionAPIType::number())
+			.add_object_member("version_status", GDExtensionAPIType::string())
+			.add_object_member("version_build", GDExtensionAPIType::string())
+			.add_object_member("version_full_name", GDExtensionAPIType::string());
+		type_definition.add_object_member("header", header_type);
 	}
 
 	const uint32_t vec3_elems = 3;
@@ -470,6 +577,32 @@ Dictionary GDExtensionAPIDump::generate_extension_api(bool p_include_docs) {
 			core_type_member_offsets.push_back(d);
 		}
 		api_dump["builtin_class_member_offsets"] = core_type_member_offsets;
+	}
+
+	{
+		//builtin_class_member_offsets type
+		GDExtensionAPIType builtin_class_member_offsets_type(JsonType::OBJECT, false);
+		builtin_class_member_offset_type
+			.add_object_member("classes",
+				GDExtensionAPIType(JsonType::ARRAY, false).set_array_subtype(
+					GDExtensionAPIType(JsonType::OBJECT, true)
+						.add_object_member("name", GDExtensionAPIType::string())
+						.add_object_member("members", GDExtensionAPIType(JsonType::ARRAY, false).set_array_subtype(GDExtensionAPIType::string()))
+				)
+			)
+			.add_object_member("classes",
+				GDExtensionAPIType(JsonType::ARRAY, false).set_array_subtype(
+					GDExtensionAPIType(JsonType::OBJECT, true)
+						.add_object_member("name", GDExtensionAPIType::string())
+						.add_object_member("members", GDExtensionAPIType(JsonType::ARRAY, false).set_array_subtype(GDExtensionAPIType::string()))
+				)
+			)
+			.add_object_member("version_minor", GDExtensionAPIType::number())
+			.add_object_member("version_patch", GDExtensionAPIType::number())
+			.add_object_member("version_status", GDExtensionAPIType::string())
+			.add_object_member("version_build", GDExtensionAPIType::string())
+			.add_object_member("version_full_name", GDExtensionAPIType::string());
+		type_definition.add_object_member("builtin_class_member_offsets", builtin_class_member_offsets_type);
 	}
 
 	if (p_include_docs) {
@@ -1292,6 +1425,9 @@ Dictionary GDExtensionAPIDump::generate_extension_api(bool p_include_docs) {
 
 		api_dump["native_structures"] = native_structures;
 	}
+
+	// do something with type definition...
+	// type_definition.generate_definition()
 
 	return api_dump;
 }
