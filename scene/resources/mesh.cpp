@@ -581,6 +581,27 @@ Ref<ConcavePolygonShape3D> Mesh::create_trimesh_shape() const {
 	shape->set_faces(face_points);
 	return shape;
 }
+
+Ref<ConcavePolygonShape3D> Mesh::create_flipped_trimesh_shape() const {
+	Vector<Face3> faces = get_faces();
+	if (faces.size() == 0) {
+		return Ref<ConcavePolygonShape3D>();
+	}
+
+	Vector<Vector3> face_points;
+	face_points.resize(faces.size() * 3);
+
+	for (int i = 0; i < face_points.size(); i += 3) {
+		Face3 f = faces.get(i / 3);
+		face_points.set(i, f.vertex[0]);
+		face_points.set(i + 1, f.vertex[2]);
+		face_points.set(i + 2, f.vertex[1]);
+	}
+
+	Ref<ConcavePolygonShape3D> shape = memnew(ConcavePolygonShape3D);
+	shape->set_faces(face_points);
+	return shape;
+}
 #endif // _3D_DISABLED
 
 Ref<Mesh> Mesh::create_outline(float p_margin) const {

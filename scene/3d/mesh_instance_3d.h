@@ -90,6 +90,9 @@ public:
 	Node *create_trimesh_collision_node();
 	void create_trimesh_collision();
 
+	Node *create_flipped_trimesh_collision_node();
+	void create_flipped_trimesh_collision();
+
 	Node *create_convex_collision_node(bool p_clean = true, bool p_simplify = false);
 	void create_convex_collision(bool p_clean = true, bool p_simplify = false);
 

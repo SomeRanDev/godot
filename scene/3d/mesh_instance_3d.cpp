@@ -258,6 +258,36 @@ void MeshInstance3D::create_trimesh_collision() {
 	}
 }
 
+Node *MeshInstance3D::create_flipped_trimesh_collision_node() {
+	if (mesh.is_null()) {
+		return nullptr;
+	}
+
+	Ref<ConcavePolygonShape3D> shape = mesh->create_flipped_trimesh_shape();
+	if (shape.is_null()) {
+		return nullptr;
+	}
+
+	StaticBody3D *static_body = memnew(StaticBody3D);
+	CollisionShape3D *cshape = memnew(CollisionShape3D);
+	cshape->set_shape(shape);
+	static_body->add_child(cshape, true);
+	return static_body;
+}
+
+void MeshInstance3D::create_flipped_trimesh_collision() {
+	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_flipped_trimesh_collision_node());
+	ERR_FAIL_NULL(static_body);
+	static_body->set_name(String(get_name()) + "_flipped_col");
+
+	add_child(static_body, true);
+	if (get_owner()) {
+		CollisionShape3D *cshape = Object::cast_to<CollisionShape3D>(static_body->get_child(0));
+		static_body->set_owner(get_owner());
+		cshape->set_owner(get_owner());
+	}
+}
+
 Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify) {
 	if (mesh.is_null()) {
 		return nullptr;
@@ -687,6 +717,8 @@ void MeshInstance3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("create_trimesh_collision"), &MeshInstance3D::create_trimesh_collision);
 	ClassDB::set_method_flags("MeshInstance3D", "create_trimesh_collision", METHOD_FLAGS_DEFAULT);
+	ClassDB::bind_method(D_METHOD("create_flipped_trimesh_collision"), &MeshInstance3D::create_flipped_trimesh_collision);
+	ClassDB::set_method_flags("MeshInstance3D", "create_flipped_trimesh_collision", METHOD_FLAGS_DEFAULT);
 	ClassDB::bind_method(D_METHOD("create_convex_collision", "clean", "simplify"), &MeshInstance3D::create_convex_collision, DEFVAL(true), DEFVAL(false));
 	ClassDB::set_method_flags("MeshInstance3D", "create_convex_collision", METHOD_FLAGS_DEFAULT);
 	ClassDB::bind_method(D_METHOD("create_multiple_convex_collisions", "settings"), &MeshInstance3D::create_multiple_convex_collisions, DEFVAL(Ref<MeshConvexDecompositionSettings>()));
